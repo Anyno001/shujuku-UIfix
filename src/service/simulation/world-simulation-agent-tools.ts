@@ -1,0 +1,195 @@
+import { WORLD_SIMULATION_LEDGER_FIELD_MATRIX_ACU, WORLD_SIMULATION_SINGLETON_ID_ACU, type WorldSimulationLedger_ACU, type WorldSimulationLedgerFieldSnapshot_ACU, type WorldSimulationLedgerModule_ACU } from './model';
+import type { WorldSimulationToolCall_ACU } from './agent/agent-model';
+import { recordWorldSimulationEvidence_ACU, type WorldSimulationEvidenceRegistry_ACU, type WorldSimulationEvidenceStatus_ACU } from './world-simulation-evidence-registry';
+import { gateWorldSimulationReadBatch_ACU, type WorldSimulationReadGateConfig_ACU, type WorldSimulationReadGateState_ACU } from './agent/agent-read-gate';
+import type { WorldSimulationTokenCounter_ACU } from './agent/agent-token-budget';
+
+export const WORLD_SIMULATION_TOOL_ADDRESSES_ACU = [
+  'anchor:message', 'summary:current', 'worldbook:entry:', 'encyclopedia:entry:', 'web:url:',
+  'ledger:current', 'stage-plan:current', 'candidates:current', 'chronicle:current', 'projection:preview',
+  'player:current', 'rumors:current',
+  'seeds:', 'actors:', 'rumors:', 'chronicle:', 'dimensions:', 'chronicle-archive:', 'field:',
+] as const;
+
+export function formatWorldSimulationToolAddressHints_ACU(): string {
+  return WORLD_SIMULATION_TOOL_ADDRESSES_ACU
+    .flatMap(address => address === 'field:' ? ['field:<module>:<id>', 'field:<module>:<id>:<field>'] : [address])
+    .join(' | ');
+}
+export interface WorldSimulationToolReadResult_ACU { status: WorldSimulationEvidenceStatus_ACU; content?: string; summary?: string; exact?: boolean; truncated?: boolean; directory?: boolean; }
+export interface WorldSimulationToolSearchHit_ACU { address: string; summary: string; }
+export interface WorldSimulationToolSearchResult_ACU { status: WorldSimulationEvidenceStatus_ACU; hits: readonly WorldSimulationToolSearchHit_ACU[]; summary?: string; }
+export interface WorldSimulationToolDependencies_ACU {
+  read(address: string): Promise<WorldSimulationToolReadResult_ACU>;
+  search(query: string, scope: readonly string[], maxResults: number, isRegex: boolean): Promise<WorldSimulationToolSearchResult_ACU>;
+}
+export interface WorldSimulationToolResult_ACU { kind: 'read' | 'search'; address: string; status: WorldSimulationEvidenceStatus_ACU; content?: string; summary: string; evidenceRef?: string; }
+export interface WorldSimulationToolBatchGate_ACU {
+  state: WorldSimulationReadGateState_ACU;
+  config: WorldSimulationReadGateConfig_ACU;
+  usage: { readsUsed: number };
+  maxReads: number;
+  contextTokens?: number;
+  count?: WorldSimulationTokenCounter_ACU;
+}
+
+export interface WorldSimulationToolContext_ACU {
+  anchorMessage: unknown; summary: unknown; ledger: unknown; stagePlan: unknown;
+  candidates: unknown; chronicle: unknown; projectionPreview: unknown;
+  chronicleArchive?: unknown;
+  liveArchive?: () => unknown;
+  /** 生产折叠的账本与分栏视图；读取失败不能伪装为空。 */
+  liveLedger?: () => { ledger: WorldSimulationLedger_ACU; fields?: WorldSimulationLedgerFieldSnapshot_ACU };
+  externalRead?: (address: string) => Promise<WorldSimulationToolReadResult_ACU>;
+  externalSearch?: (query: string, scope: readonly string[], maxResults: number, isRegex: boolean) => Promise<WorldSimulationToolSearchResult_ACU>;
+}
+
+function summary_ACU(value: unknown): string { return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, 300); }
+function content_ACU(value: unknown): string { return typeof value === 'string' ? value : JSON.stringify(value ?? null); }
+function ledgerSlice_ACU(ledger: unknown, key: string): unknown {
+  return ledger !== null && typeof ledger === 'object' && !Array.isArray(ledger) && Object.prototype.hasOwnProperty.call(ledger, key)
+    ? (ledger as Record<string, unknown>)[key]
+    : null;
+}
+
+function ledgerItem_ACU(ledger: unknown, collection: string, id: string): unknown {
+  const list = ledgerSlice_ACU(ledger, collection);
+  if (!Array.isArray(list) || !id) return undefined;
+  return list.find(item => item !== null && typeof item === 'object' && (item as { id?: unknown }).id === id);
+}
+
+function archiveItem_ACU(archive: unknown, archiveRef: string): unknown {
+  if (!archiveRef) return undefined;
+  if (archive !== null && typeof archive === 'object' && !Array.isArray(archive) && 'records' in archive) {
+    const records = (archive as { records?: unknown }).records;
+    if (records !== null && typeof records === 'object' && !Array.isArray(records)) {
+      return (records as Record<string, unknown>)[archiveRef];
+    }
+  }
+  return undefined;
+}
+
+export function createWorldSimulationToolDependencies_ACU(context: WorldSimulationToolContext_ACU): WorldSimulationToolDependencies_ACU {
+  const resolveLocal_ACU = (address: string): { found: boolean; value?: unknown; missing?: string } => {
+    if (address === 'anchor:message') return { found: true, value: context.anchorMessage };
+    if (address === 'summary:current') return { found: true, value: context.summary };
+    if (address === 'stage-plan:current') return { found: true, value: context.stagePlan };
+    if (address === 'candidates:current') return { found: true, value: context.candidates };
+    if (address === 'projection:preview') return { found: true, value: context.projectionPreview };
+    if (address.startsWith('chronicle-archive:')) return { found: true, value: archiveItem_ACU(context.liveArchive?.() ?? context.chronicleArchive, address.slice('chronicle-archive:'.length)) };
+    if (address === 'ledger:current' || address === 'chronicle:current' || address === 'player:current' || address === 'rumors:current'
+      || /^(seeds|actors|rumors|chronicle|dimensions):.+$/.test(address) || address.startsWith('field:')) {
+      const current = context.liveLedger?.();
+      const ledger = current?.ledger ?? context.ledger;
+      if (address === 'ledger:current') return { found: true, value: ledger };
+      if (address === 'chronicle:current') return { found: true, value: ledgerSlice_ACU(ledger, 'chronicle') };
+      if (address === 'player:current') return { found: true, value: ledgerSlice_ACU(ledger, 'player') };
+      if (address === 'rumors:current') return { found: true, value: ledgerSlice_ACU(ledger, 'rumors') };
+      if (address.startsWith('field:')) {
+        const match = address.match(/^field:([a-z]+):([^:]+)(?::([^:]+))?$/);
+        if (!match || !Object.prototype.hasOwnProperty.call(WORLD_SIMULATION_LEDGER_FIELD_MATRIX_ACU, match[1])) return { found: true, missing: 'invalid field address' };
+        const module = match[1] as WorldSimulationLedgerModule_ACU;
+        const id = ['clock', 'player', 'guidance'].includes(module) ? WORLD_SIMULATION_SINGLETON_ID_ACU : match[2];
+        if (id !== match[2] || match[3] && !WORLD_SIMULATION_LEDGER_FIELD_MATRIX_ACU[module].fields.includes(match[3])) return { found: true, missing: 'invalid field address' };
+        if (!current?.fields) return { found: true, missing: 'field view unavailable' };
+        const record = current.fields.records[module]?.[id];
+        if (!record) return { found: true, value: undefined };
+        if (!match[3]) return { found: true, value: record };
+        const field = record.fields[match[3]];
+        return field ? { found: true, value: { module, id, field: match[3], status: record.status, ...field } }
+          : { found: true, missing: `missing ${module}#${id}.${match[3]}; required: ${record.missingFields.join(', ')}` };
+      }
+      const prefixed = address.match(/^(seeds|actors|rumors|chronicle|dimensions):(.+)$/);
+      if (prefixed) {
+        const item = ledgerItem_ACU(ledger, prefixed[1], prefixed[2]);
+        return { found: true, value: item ?? current?.fields?.records[prefixed[1] as WorldSimulationLedgerModule_ACU]?.[prefixed[2]] };
+      }
+    }
+    return { found: false };
+  };
+  return {
+    async read(address) {
+      const localHit = resolveLocal_ACU(address);
+      if (localHit.found) {
+        if (localHit.missing) return { status: 'failed', summary: localHit.missing };
+        if (localHit.value === undefined || localHit.value === null) return { status: 'empty', summary: 'empty local value', exact: true };
+        const value = content_ACU(localHit.value);
+        return value ? { status: 'ok', content: value, summary: summary_ACU(value), exact: true } : { status: 'empty', summary: 'empty local value', exact: true };
+      }
+      return context.externalRead ? context.externalRead(address) : { status: 'dependency_unavailable', summary: 'external read dependency unavailable' };
+    },
+    async search(query, scope, maxResults, isRegex) {
+      return context.externalSearch ? context.externalSearch(query, scope, maxResults, isRegex) : { status: 'dependency_unavailable', hits: [], summary: 'external search dependency unavailable' };
+    },
+  };
+}
+
+export async function runWorldSimulationToolBatch_ACU(input: {
+  calls: readonly WorldSimulationToolCall_ACU[];
+  registry: WorldSimulationEvidenceRegistry_ACU;
+  dependencies: WorldSimulationToolDependencies_ACU;
+  gate?: WorldSimulationToolBatchGate_ACU;
+}): Promise<WorldSimulationToolResult_ACU[]> {
+  const results: WorldSimulationToolResult_ACU[] = [];
+  for (const call of input.calls) {
+    if (call.kind === 'read') {
+      if (input.gate && input.gate.usage.readsUsed + call.reads.length > input.gate.maxReads) {
+        for (const address of call.reads) {
+          const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation: 'read', address, status: 'failed', summary: 'WORLD_SIMULATION_READ_LIMIT_REACHED', exact: false });
+          results.push({ kind: 'read', address, status: 'failed', summary: entry.summary });
+        }
+        continue;
+      }
+      const reads = await Promise.all(call.reads.map(async address => {
+        try { return { address, read: await input.dependencies.read(address) }; }
+        catch (error) { return { address, read: { status: 'failed', summary: error instanceof Error ? error.message : String(error) } as WorldSimulationToolReadResult_ACU }; }
+      }));
+      const normalized = reads.map(({ address, read }) => ({
+        address,
+        read,
+        content: typeof read.content === 'string' ? read.content : undefined,
+      }));
+      if (input.gate) {
+        const decision = await gateWorldSimulationReadBatch_ACU(
+          normalized.flatMap(item => item.content ? [{ label: item.address, text: item.content }] : []),
+          input.gate.state,
+          input.gate.config,
+          input.gate.contextTokens ?? 0,
+          input.gate.count,
+        );
+        if (!decision.allowed) {
+          for (const { address } of normalized) {
+            const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation: 'read', address, status: 'failed', summary: decision.report, exact: false });
+            results.push({ kind: 'read', address, status: 'failed', summary: entry.summary });
+          }
+          continue;
+        }
+        input.gate.state.grantedTokens += decision.batchTokens;
+        input.gate.usage.readsUsed += call.reads.length;
+      }
+      for (const { address, read, content: normalizedContent } of normalized) {
+        const status = read.truncated ? 'truncated' : read.status === 'ok' && !normalizedContent ? 'empty' : read.status;
+        const operation = read.directory ? 'directory' : 'read';
+        const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation, address, status, summary: summary_ACU(read.summary), exact: operation === 'read' && read.exact === true && !read.truncated });
+        results.push({ kind: 'read', address, status, content: normalizedContent, summary: entry.summary, evidenceRef: entry.evidenceRef });
+      }
+      continue;
+    }
+    let search: WorldSimulationToolSearchResult_ACU;
+    try { search = await input.dependencies.search(call.query, call.scope, call.maxResults, call.isRegex); }
+    catch (error) {
+      const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation: 'search', address: `search:${call.query}`, status: 'failed', summary: error instanceof Error ? error.message : String(error), exact: false });
+      results.push({ kind: 'search', address: entry.address, status: entry.status, summary: entry.summary });
+      continue;
+    }
+    if (search.status !== 'ok' || !search.hits.length) {
+      const status = search.status === 'ok' ? 'empty' : search.status;
+      const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation: 'search', address: `search:${call.query}`, status, summary: search.summary ?? 'no results', exact: false });
+      results.push({ kind: 'search', address: entry.address, status: entry.status, summary: entry.summary });
+    } else for (const hit of search.hits.slice(0, call.maxResults)) {
+      const entry = recordWorldSimulationEvidence_ACU(input.registry, { operation: 'search', address: hit.address, status: 'ok', summary: hit.summary, exact: false });
+      results.push({ kind: 'search', address: entry.address, status: entry.status, summary: entry.summary });
+    }
+  }
+  return results;
+}
