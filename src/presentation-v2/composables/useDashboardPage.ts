@@ -131,6 +131,7 @@ export interface DashboardPageState {
   hasTables: ComputedRef<boolean>;
   basicToggles: ComputedRef<DashboardToggleItem[]>;
   advancedToggles: ComputedRef<DashboardToggleItem[]>;
+  moreAdvancedToggles: ComputedRef<DashboardToggleItem[]>;
   healthItems: ComputedRef<DashboardHealthItem[]>;
   contentReplaceGateEnabled: ComputedRef<boolean>;
   refresh: () => Promise<void>;
@@ -965,7 +966,7 @@ export function useDashboardPage(): DashboardPageState {
         description: dashboardCopy.toggles.streaming.description,
         value: settings_ACU.streamingEnabled === true,
       },
-    );
+    ];
     return items;
   });
 

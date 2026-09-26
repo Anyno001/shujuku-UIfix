@@ -243,7 +243,7 @@ export const dashboardCopy = {
     },
     streaming: {
       label: "流式输出",
-      description: "文本边生成边返回，关闭则完整输出后返回。",
+      description: "文本边生成边返回，关闭则完整输出后返回。开启后可能不会产生报错日志。",
     },
     zeroTk: {
       label: "0TK模式",
