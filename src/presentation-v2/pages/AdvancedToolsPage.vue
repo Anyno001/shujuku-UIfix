@@ -11,26 +11,26 @@
       >
         <template #actions>
           <AcuBadge :variant="sqlFlow.isSqliteAvailable.value ? 'success' : 'warning'">
-            {{ sqlFlow.isSqliteAvailable.value ? 'SQLite 模式' : 'SQL 不可用' }}
+            {{ sqlFlow.isSqliteAvailable.value ? '可使用数据库工具' : '数据库工具暂不可用' }}
           </AcuBadge>
         </template>
 
         <div class="acu-v2-advanced-tools-page__quick-actions" aria-label="SQL 快捷操作">
           <AcuButton size="sm" :disabled="!!sqlFlow.busyAction.value" @click="sqlFlow.showTables">
             <i class="fa-solid fa-list"></i>
-            查看所有表
+            查看全部数据表
           </AcuButton>
           <AcuButton size="sm" :disabled="!!sqlFlow.busyAction.value" @click="sqlFlow.showSchema">
             <i class="fa-solid fa-sitemap"></i>
-            查看表结构
+            查看数据表结构
           </AcuButton>
         </div>
 
-        <AcuFormRow label="SQL 语句" hint="Ctrl / Command + Enter 执行；多行语句会原样交给 SQLite provider 处理。">
+        <AcuFormRow label="数据操作内容" hint="按 Ctrl / Command + Enter 执行；内容会直接作用于当前聊天的数据。">
           <AcuTextarea
             :model-value="sqlFlow.sqlText.value"
             :rows="10"
-            placeholder="SELECT * FROM 表名;&#10;&#10;UPDATE 表名 SET 列名 = '新值' WHERE row_id = 1;"
+            placeholder="例如：查看某张数据表，或修改其中一条记录。"
             class="acu-v2-advanced-tools-page__sql-textarea"
             aria-label="SQL 语句"
             @update:model-value="sqlFlow.sqlText.value = $event"
@@ -46,7 +46,7 @@
             @click="sqlFlow.executeCurrent"
           >
             <i class="fa-solid fa-play"></i>
-            执行
+            执行操作
           </AcuButton>
           <AcuButton :disabled="!sqlFlow.hasSqlText.value || !!sqlFlow.busyAction.value" @click="sqlFlow.clearSql">
             <i class="fa-solid fa-eraser"></i>
@@ -58,7 +58,7 @@
         </div>
 
         <section class="acu-v2-advanced-tools-page__sql-result-section" aria-label="SQL 执行结果">
-          <h4 class="acu-v2-advanced-tools-page__section-title">结果</h4>
+          <h4 class="acu-v2-advanced-tools-page__section-title">操作结果</h4>
           <div v-if="sqlFlow.result.value.kind === 'idle'" class="acu-v2-advanced-tools-page__empty">
             执行 SQL 后结果会显示在这里
           </div>
@@ -98,7 +98,7 @@
         </section>
 
         <section class="acu-v2-advanced-tools-page__sql-history-section" aria-label="SQL 执行历史">
-          <h4 class="acu-v2-advanced-tools-page__section-title">执行历史</h4>
+          <h4 class="acu-v2-advanced-tools-page__section-title">操作记录</h4>
           <div v-if="!sqlFlow.history.value.length" class="acu-v2-advanced-tools-page__empty acu-v2-advanced-tools-page__empty--compact">
             暂无执行历史
           </div>
@@ -160,7 +160,7 @@
             <AcuInput
               :model-value="logFlow.keyword.value"
               type="text"
-              placeholder="搜索日志内容"
+              placeholder="搜索提示或报错"
               @update:model-value="logFlow.keyword.value = String($event)"
             />
           </AcuFormRow>
@@ -171,15 +171,15 @@
             <div class="acu-v2-advanced-tools-page__log-actions">
               <AcuButton :variant="logFlow.paused.value ? 'primary' : 'default'" @click="logFlow.setPaused(!logFlow.paused.value)">
                 <i :class="logFlow.paused.value ? 'fa-solid fa-play' : 'fa-solid fa-pause'"></i>
-                暂停
+                {{ logFlow.paused.value ? '继续接收' : '暂时停止' }}
               </AcuButton>
               <AcuButton :disabled="!logFlow.totalCount.value" @click="logFlow.exportFiltered">
                 <i class="fa-solid fa-upload"></i>
-                导出
+                导出记录
               </AcuButton>
               <AcuButton variant="danger" :disabled="!logFlow.totalCount.value" @click="logFlow.clearAll">
                 <i class="fa-solid fa-trash"></i>
-                清空
+                清空记录
               </AcuButton>
             </div>
 

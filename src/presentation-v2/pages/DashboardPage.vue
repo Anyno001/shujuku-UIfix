@@ -61,16 +61,6 @@
               :item="item"
               @change="handleToggleChange(item.key, $event)"
             />
-          </template>
-
-          <template v-else>
-            <ToggleRow
-              v-for="item in dashboard.advancedToggles.value"
-              :key="item.key"
-              :item="item"
-              @change="handleToggleChange(item.key, $event)"
-            />
-
             <DashboardStorageModeSection
               :model-value="dashboard.storageMode.value"
               :options="dashboard.storageOptions"
@@ -82,6 +72,29 @@
             >
               {{ dashboard.storageMessage.value.text }}
             </AcuMessage>
+          </template>
+
+          <template v-else-if="activeGroup === 'advanced'">
+            <ToggleRow
+              v-for="item in dashboard.advancedToggles.value"
+              :key="item.key"
+              :item="item"
+              @change="handleToggleChange(item.key, $event)"
+            />
+          </template>
+          <template v-else>
+            <ToggleRow
+              v-for="item in dashboard.moreAdvancedToggles.value"
+              :key="item.key"
+              :item="item"
+              @change="handleToggleChange(item.key, $event)"
+            />
+            <AcuButton
+              variant="default"
+              @click="routerStore.setActivePage('advanced-tools')"
+            >
+              打开高级工具
+            </AcuButton>
           </template>
         </div>
       </AcuPanel>
@@ -122,10 +135,11 @@ const routerStore = useRouterStore();
 const dialogStore = useDialogStore();
 const toastStore = useToastStore();
 
-const activeGroup = ref<"basic" | "advanced">("basic");
+const activeGroup = ref<"basic" | "advanced" | "moreAdvanced">("basic");
 const groupOptions = [
   { value: "basic", label: dashboardCopy.groups.basic },
   { value: "advanced", label: dashboardCopy.groups.advanced },
+  { value: "moreAdvanced", label: dashboardCopy.groups.moreAdvanced },
 ];
 
 async function refreshAll(): Promise<void> {

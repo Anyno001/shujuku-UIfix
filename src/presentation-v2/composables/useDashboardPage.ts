@@ -909,19 +909,12 @@ export function useDashboardPage(): DashboardPageState {
     });
   });
 
-  /** 基础设置 — 同一聊天里时不时开关的功能。 */
+  /** 基础功能 — 日常使用时最常调整的功能。 */
   const basicToggles = computed<DashboardToggleItem[]>(() => {
     void dataRefreshTick.value;
     const flightMode = getCurrentFlightModeState_ACU();
     const hasActiveChat = hasActiveChatContext(chatFileIdentifier.value);
     return [
-      {
-        key: "flightMode",
-        label: dashboardCopy.toggles.flightMode.label,
-        description: dashboardCopy.toggles.flightMode.description,
-        value: flightMode.enabled,
-        disabled: !hasActiveChat,
-      },
       {
         key: "autoUpdateEnabled",
         label: dashboardCopy.toggles.autoUpdate.label,
@@ -929,10 +922,36 @@ export function useDashboardPage(): DashboardPageState {
         value: settings_ACU.autoUpdateEnabled !== false,
       },
       {
+        key: "plotEnabled",
+        label: dashboardCopy.toggles.plot.label,
+        description: dashboardCopy.toggles.plot.description,
+        value: settings_ACU.plotSettings?.enabled === true,
+      },
+      {
         key: "toastMuteEnabled",
         label: dashboardCopy.toggles.toastMute.label,
         description: dashboardCopy.toggles.toastMute.description,
         value: settings_ACU.toastMuteEnabled === true,
+      },
+      {
+        key: "flightMode",
+        label: dashboardCopy.toggles.flightMode.label,
+        description: dashboardCopy.toggles.flightMode.description,
+        value: flightMode.enabled,
+        disabled: !hasActiveChat,
+      },
+    ];
+  });
+
+  /** 进阶功能 — 需要了解作用后再调整的功能。 */
+  const advancedToggles = computed<DashboardToggleItem[]>(() => {
+    void dataRefreshTick.value;
+    const items: DashboardToggleItem[] = [
+      {
+        key: "summaryVectorIndexModeEnabled",
+        label: dashboardCopy.toggles.vector.label,
+        description: dashboardCopy.toggles.vector.description,
+        value: settings_ACU.summaryVectorIndexModeDefault === true,
       },
       {
         key: "zeroTkOccupyModeDefault",
@@ -946,19 +965,14 @@ export function useDashboardPage(): DashboardPageState {
         description: dashboardCopy.toggles.streaming.description,
         value: settings_ACU.streamingEnabled === true,
       },
-    ];
+    );
+    return items;
   });
 
-  /** 高级设置 — 配置后基本不动；动了出问题是正常的。 */
-  const advancedToggles = computed<DashboardToggleItem[]>(() => {
+  /** 更多高级功能 — 会改变生成流程、导入资料或进入诊断工具。 */
+  const moreAdvancedToggles = computed<DashboardToggleItem[]>(() => {
     void dataRefreshTick.value;
-    const items: DashboardToggleItem[] = [
-      {
-        key: "plotEnabled",
-        label: dashboardCopy.toggles.plot.label,
-        description: dashboardCopy.toggles.plot.description,
-        value: settings_ACU.plotSettings?.enabled === true,
-      },
+    return [
       {
         key: "continuationPageEnabled",
         label: dashboardCopy.toggles.continuation.label,
@@ -966,10 +980,10 @@ export function useDashboardPage(): DashboardPageState {
         value: settings_ACU.continuationPageEnabled !== false,
       },
       {
-        key: "worldSimulationPageEnabled",
-        label: dashboardCopy.toggles.worldSimulation.label,
-        description: dashboardCopy.toggles.worldSimulation.description,
-        value: settings_ACU.worldSimulationPageEnabled === true,
+        key: "contentReplaceEnabled",
+        label: dashboardCopy.toggles.contentReplace.label,
+        description: dashboardCopy.toggles.contentReplace.description,
+        value: isContentReplaceEnabledBySettings(),
       },
       {
         key: "externalImportPageEnabled",
@@ -978,18 +992,10 @@ export function useDashboardPage(): DashboardPageState {
         value: settings_ACU.externalImportPageEnabled !== false,
       },
       {
-        key: "contentReplaceEnabled",
-        label: dashboardCopy.toggles.contentReplace.label,
-        description: dashboardCopy.toggles.contentReplace.description,
-        value: isContentReplaceEnabledBySettings(),
-      },
-    ];
-    items.push(
-      {
-        key: "summaryVectorIndexModeEnabled",
-        label: dashboardCopy.toggles.vector.label,
-        description: dashboardCopy.toggles.vector.description,
-        value: settings_ACU.summaryVectorIndexModeDefault === true,
+        key: "worldSimulationPageEnabled",
+        label: dashboardCopy.toggles.worldSimulation.label,
+        description: dashboardCopy.toggles.worldSimulation.description,
+        value: settings_ACU.worldSimulationPageEnabled === true,
       },
       {
         key: "developerOptionsEnabled",
@@ -997,8 +1003,7 @@ export function useDashboardPage(): DashboardPageState {
         description: dashboardCopy.developerToggle.description,
         value: developerOptionsEnabled.value,
       },
-    );
-    return items;
+    ];
   });
 
   const healthItems = computed<DashboardHealthItem[]>(() => {
@@ -1177,6 +1182,7 @@ export function useDashboardPage(): DashboardPageState {
     hasTables,
     basicToggles,
     advancedToggles,
+    moreAdvancedToggles,
     healthItems,
     contentReplaceGateEnabled,
     refresh,

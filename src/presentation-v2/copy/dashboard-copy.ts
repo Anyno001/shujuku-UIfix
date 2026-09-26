@@ -8,27 +8,28 @@ export const dashboardCopy = {
       "这里显示当前聊天和已开启功能的状态。只有标为“需要处理”的项目才会影响使用；未启用或待准备通常不需要操作。",
     togglesTitle: "开关",
     togglesDescription:
-      "基础设置：当前聊天中可随时开关的功能。高级设置：调整后可能影响数据库运行，请谨慎修改。",
+      "按使用习惯分成三组：基础功能、进阶功能和更多高级功能。看不懂的设置可以先保持默认。",
   },
   groups: {
-    ariaLabel: "开关分组切换",
-    basic: "基础设置",
-    advanced: "高级设置",
+    ariaLabel: "功能分组切换",
+    basic: "基础功能",
+    advanced: "进阶功能",
+    moreAdvanced: "更多高级功能",
   },
   developerToggle: {
     label: "启用开发者选项",
     description: "默认关闭。显示开发者页面，不推荐无经验用户启用。",
   },
   storage: {
-    sectionLabel: "存储模式",
+    sectionLabel: "保存方式",
     description:
-      "选择表格数据的保存方式。切换会重置填表提示词。填表异常时，可切回原模式检查。",
+      "聊天数据的保存方式。",
     modeLabel(mode: StorageMode): string {
       return mode === "sqlite" ? "SQLite" : "原生 JSON";
     },
     optionDescription: {
-      native: "兼容性高，适合基础表格。",
-      sqlite: "准确率高，适合复杂表格与多表关联。",
+      native: "默认方式，适合大多数情况。",
+      sqlite: "适合内容较多、关系较复杂的表格。",
     },
     switchLabel(mode: StorageMode): string {
       return mode === "sqlite" ? "SQL" : "原生";
@@ -37,7 +38,7 @@ export const dashboardCopy = {
       return mode === "native" ? "兼容性最佳" : "适合复杂表";
     },
     switched(mode: StorageMode): string {
-      return `已切换到 ${dashboardCopy.storage.modeLabel(mode)} 模式。`;
+      return `已切换保存方式：${dashboardCopy.storage.modeLabel(mode)}。`;
     },
     switchFailed: "存储模式切换失败。",
   },
@@ -217,67 +218,61 @@ export const dashboardCopy = {
   toggles: {
     flightMode: {
       label: "飞行模式",
-      description: "仅对当前会话生效。开启后抑制剧情推进，并在大总结新增时隐藏已归纳纪要。",
+      description: "只对当前聊天有效。开启后暂时停用剧情推进功能并定时合并纪要。",
       enableFailed: "飞行模式未开启",
       enabled: "已开启当前会话的飞行模式。",
       disableTitle: "关闭飞行模式",
-      disableMessage: "关闭后，当前会话的隐藏纪要会恢复可见。",
-      disableDanger: "将跨全部历史永久删除「大总结」表及其内容；此操作不可逆。",
+      disableMessage: "关闭后，当前聊天中暂时藏起来的摘要会重新显示。",
+      disableDanger: "关闭后删除所有历史聊天里的“大总结”，无法恢复。",
       confirmDisable: "关闭并永久删除",
       disableFailed: "飞行模式未关闭",
       disabled: "已关闭飞行模式，并已永久删除大总结表。",
       templateScopeChangedTitle: "检测到模板已修改",
-      templateScopeChangedMessage: "飞行模式启用后，此会话的表格模板已被修改。继续关闭会按启用前归档模板恢复，并覆盖这些模板修改。",
-      templateScopeChangedDanger: "关闭飞行模式会跨全部历史永久删除「大总结」表及其内容；此操作不可逆。",
+      templateScopeChangedMessage: "开启飞行模式后，你修改过当前聊天的表格模板。继续关闭会恢复开启前的模板，并覆盖这些修改。",
+      templateScopeChangedDanger: "关闭后删除所有历史聊天里的“大总结”，无法恢复。",
       confirmDisableLabel: "仍要关闭并删除",
       disabledNoChat: "请先加载一个聊天会话。",
     },
     autoUpdate: {
       label: "自动更新",
-      description:
-        "默认开启。关闭后需手动更新表。仅推荐在测试或自由发挥时关闭。",
+      description: "自动总结游玩内容，建议开启。",
     },
     toastMute: {
       label: "静默提示框",
-      description:
-        "默认关闭。开启后仅保留填表、规划等核心提示，其他浮窗通知不再弹出。",
+      description: "开启后，普通提醒不再弹出，只保留重要提示。",
     },
     streaming: {
-      label: "开启流式输出",
-      description:
-        "开启后，支持流式的文本生成会边生成边返回；关闭后会等完整结果返回。",
+      label: "流式输出",
+      description: "文本边生成边返回，关闭则完整输出后返回。",
     },
     zeroTk: {
-      label: "0TK 占用模式",
-      description: "默认开启。开启后纪要概览不占用上下文。",
+      label: "0TK模式",
+      description: "纪要概览不再占用上下文。",
     },
     plot: {
       label: "剧情推进",
       description:
-        "默认开启。详情前往对应页面；默认仅召回记忆，进阶版含剧情规划。仅推荐在测试或自由发挥时关闭。",
+        "参考已有内容召回记忆或推进剧情，建议开启。",
     },
     continuation: {
       label: "智能续写",
-      description: "手动功能。代替你自动发送提示词，AI 根据内容持续续写。",
+      description: "AI分析并自动续写正文。",
     },
     worldSimulation: {
       label: "世界推演",
-      description: "审计世界账本、阶段计划与证据，并在确认后把安全 guidance 投影到正文。",
+      description: "AI分析并验算出平行事件、世界动态等。",
     },
     externalImport: {
       label: "外部导入",
-      description:
-        "手动功能。将 TXT 小说快速转为未精修的世界书条目，方便制作角色卡。",
+      description: "导入资料并整理成世界书条目，协助制作角色卡。",
     },
     contentReplace: {
       label: "正文替换",
-      description:
-        "默认关闭。开启后每轮正文生成后会自动检查并优化 AI 回复的正文内容。",
+      description: "AI分析并替换正文内容。",
     },
     vector: {
       label: "交火模式",
-      description:
-        "默认关闭。详情前往对应页面，增强记忆召回效果。需配置向量API服务。",
+      description: "配置向量，增强记忆召回效果。",
     },
   },
   templatePreset: {
