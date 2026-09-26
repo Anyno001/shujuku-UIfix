@@ -1,6 +1,7 @@
 <template>
   <section class="acu-v2-basic-config-page">
     <AcuMobilePanelNav :items="panelNavItems" />
+    <DashboardPage id="basic-config-dashboard-panel" toggles-only />
 
     <AcuPanelGrid class="acu-v2-basic-config-page__grid">
       <ApiConfigPanel
@@ -27,13 +28,16 @@
 <script setup lang="ts">
 import AcuMobilePanelNav from '../components/_lib/AcuMobilePanelNav.vue';
 import AcuPanelGrid from '../components/_lib/AcuPanelGrid.vue';
+import DashboardPage from './DashboardPage.vue';
 import ApiConfigPanel from '../components/ApiConfigPanel.vue';
 import FormFillUpdateSettingsPanel from '../components/FormFillUpdateSettingsPanel.vue';
 import PlotPresetPanel from '../components/PlotPresetPanel.vue';
 import TableTemplatePresetPanel from '../components/TableTemplatePresetPanel.vue';
 import { basicConfigCopy } from '../copy/basic-config-copy';
+import { dashboardCopy } from '../copy/dashboard-copy';
 
 const panelNavItems = [
+  { id: 'basic-config-dashboard-panel', label: dashboardCopy.panels.togglesTitle },
   { id: 'basic-config-api-panel', label: basicConfigCopy.nav.api },
   { id: 'basic-config-update-panel', label: basicConfigCopy.nav.update },
   { id: 'basic-config-table-panel', label: basicConfigCopy.nav.table },
@@ -49,6 +53,10 @@ const panelNavItems = [
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.acu-v2-basic-config-page :deep(.acu-v2-dashboard-page) {
+  padding: 0;
 }
 
 .acu-v2-basic-config-page__grid {

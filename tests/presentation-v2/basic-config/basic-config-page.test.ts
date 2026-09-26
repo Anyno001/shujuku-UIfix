@@ -3,9 +3,10 @@
  *
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const STORAGE_KEY = 'acu_v2_ui_state';
+let lastMountedApp: { __resetAcuV2MountForTests: () => void } | null = null;
 
 function createSettings() {
   return {
@@ -80,6 +81,7 @@ async function mountBasicConfigPage(settings = createSettings()) {
   }));
   vi.doMock('../../../src/service/table/storage-mode', () => ({
     getCurrentStorageMode: () => settings.storageMode,
+    isSqliteMode: () => settings.storageMode === 'sqlite',
   }));
   vi.doMock('../../../src/service/table/table-storage-strategy', () => ({
     switchStorageMode: vi.fn(async (mode: string) => { settings.storageMode = mode; }),
@@ -146,6 +148,7 @@ async function mountBasicConfigPage(settings = createSettings()) {
   }));
 
   const mount = await import('../../../src/presentation-v2/bootstrap/mount');
+  lastMountedApp = mount;
   await mount.openAcuV2App();
   await new Promise(r => setTimeout(r, 0));
   return { mount, settings, openVisualizer };
@@ -157,6 +160,11 @@ beforeEach(() => {
   vi.unstubAllGlobals();
 });
 
+afterEach(() => {
+  lastMountedApp?.__resetAcuV2MountForTests();
+  lastMountedApp = null;
+});
+
 describe('BasicConfigPage', () => {
   it('基础模式只显示基础配置页，并集中呈现 API、更新设置、表格模板、剧情推进预设', async () => {
     const { mount } = await mountBasicConfigPage();
@@ -165,6 +173,19 @@ describe('BasicConfigPage', () => {
     expect(page).not.toBeNull();
     const text = page!.textContent || '';
     expect(document.querySelector('.acu-v2-app__page-title')?.textContent || '').toContain('基础配置');
+    const dashboard = page!.querySelector('.acu-v2-dashboard-page') as HTMLElement;
+    expect(dashboard).not.toBeNull();
+    expect(dashboard.textContent).not.toContain('运行概览');
+    expect(dashboard.textContent).toContain('基础功能');
+    expect(dashboard.textContent).toContain('进阶功能');
+    expect(dashboard.textContent).toContain('更多高级功能');
+    expect(dashboard.querySelector('[data-acu-toggle-group]')?.getAttribute('data-acu-toggle-group')).toBe('basic');
+    expect(dashboard.textContent).toContain('自动更新');
+    expect(dashboard.textContent).toContain('剧情推进');
+    expect(dashboard.textContent).toContain('静默提示框');
+    expect(dashboard.textContent).toContain('飞行模式');
+    expect(dashboard.textContent).toContain('保存方式');
+    expect(dashboard.querySelector('.acu-dashboard-storage-mode')).not.toBeNull();
     expect(text).not.toContain('配置状态');
     expect(text).toContain('API 预设');
     expect(text).toContain('更新设置');
@@ -179,7 +200,7 @@ describe('BasicConfigPage', () => {
     expect(panelTitles).toEqual(['API 预设', '自动更新设置', '表格模板预设', '剧情推进预设']);
     const mobileNavItems = Array.from(page!.querySelectorAll('.acu-mobile-panel-nav__item'))
       .map(item => (item.textContent || '').trim());
-    expect(mobileNavItems).toEqual(['API 预设', '更新设置', '表格模板', '剧情推进']);
+    expect(mobileNavItems).toEqual(['开关', 'API 预设', '更新设置', '表格模板', '剧情推进']);
     expect(document.getElementById('basic-config-update-panel')).not.toBeNull();
 
     const sidebarText = document.querySelector('.acu-v2-sidebar')?.textContent || '';
@@ -187,6 +208,54 @@ describe('BasicConfigPage', () => {
     expect(sidebarText).toContain('基础配置');
     expect(sidebarText).not.toContain('仪表盘');
     expect(sidebarText).not.toContain('更新参数');
+
+    mount.__resetAcuV2MountForTests();
+  });
+
+  it('基础页挂载三组开关不会改写原有提示词设置', async () => {
+    const settings = createSettings();
+    settings.promptTemplateSettings.enabled = false;
+    const { mount } = await mountBasicConfigPage(settings);
+    const { saveSettings_ACU } = await import('../../../src/service/settings/settings-service');
+
+    expect(document.querySelector('.acu-v2-basic-config-page .acu-v2-dashboard-page')).not.toBeNull();
+    expect(settings.promptTemplateSettings.enabled).toBe(false);
+    expect(saveSettings_ACU).not.toHaveBeenCalled();
+
+    mount.__resetAcuV2MountForTests();
+  });
+
+  it('基础模式可切换三组开关，并可从更多高级功能打开高级工具', async () => {
+    const { mount } = await mountBasicConfigPage();
+    const dashboard = document.querySelector('.acu-v2-basic-config-page .acu-v2-dashboard-page') as HTMLElement;
+    expect(dashboard).not.toBeNull();
+    const radio = (label: string) => Array.from(dashboard.querySelectorAll<HTMLButtonElement>('button[role="radio"]'))
+      .find(button => button.textContent?.trim() === label);
+    const keys = () => Array.from(dashboard.querySelectorAll<HTMLButtonElement>('button[data-acu-toggle-key]'))
+      .map(button => button.dataset.acuToggleKey);
+
+    radio('进阶功能')!.click();
+    await Promise.resolve();
+    expect(dashboard.querySelector('[data-acu-toggle-group]')?.getAttribute('data-acu-toggle-group')).toBe('advanced');
+    expect(keys()).toEqual(['summaryVectorIndexModeEnabled', 'zeroTkOccupyModeDefault', 'streamingEnabled']);
+
+    radio('更多高级功能')!.click();
+    await Promise.resolve();
+    expect(dashboard.querySelector('[data-acu-toggle-group]')?.getAttribute('data-acu-toggle-group')).toBe('moreAdvanced');
+    expect(keys()).toEqual([
+      'continuationPageEnabled', 'contentReplaceEnabled', 'externalImportPageEnabled',
+      'worldSimulationPageEnabled', 'developerOptionsEnabled',
+    ]);
+    const toolsButton = Array.from(dashboard.querySelectorAll('button'))
+      .find(button => button.textContent?.trim() === '打开高级工具');
+    expect(toolsButton).toBeDefined();
+    toolsButton!.click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    expect(persisted.uiMode.mode).toBe('advanced');
+    expect(persisted.router.activePageId).toBe('advanced-tools');
+    expect(document.querySelector('.acu-v2-advanced-tools-page')).not.toBeNull();
 
     mount.__resetAcuV2MountForTests();
   });
@@ -212,7 +281,7 @@ describe('BasicConfigPage', () => {
   it('基础配置页每个面板都渲染常驻说明信息条', async () => {
     const { mount } = await mountBasicConfigPage();
 
-    const panels = Array.from(document.querySelectorAll<HTMLElement>('.acu-v2-basic-config-page .acu-panel'));
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('.acu-v2-basic-config-page__grid > .acu-panel'));
     expect(panels).toHaveLength(4);
     for (const panel of panels) {
       expect(panel.querySelector('.acu-panel__description-region .acu-info-banner')).not.toBeNull();

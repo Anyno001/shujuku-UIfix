@@ -134,7 +134,7 @@ export interface DashboardPageState {
   moreAdvancedToggles: ComputedRef<DashboardToggleItem[]>;
   healthItems: ComputedRef<DashboardHealthItem[]>;
   contentReplaceGateEnabled: ComputedRef<boolean>;
-  refresh: () => Promise<void>;
+  refresh: (options?: { readOnly?: boolean }) => Promise<void>;
   setFlightMode: (enabled: boolean, options?: { confirmTemplateScopeChange?: boolean }) => Promise<FlightModeTransitionResult_ACU>;
   setToggle: (key: string, value: boolean) => void;
   setStorageMode: (mode: string) => Promise<void>;
@@ -1057,10 +1057,12 @@ export function useDashboardPage(): DashboardPageState {
     unsubscribeLogs = null;
   });
 
-  async function refresh(): Promise<void> {
+  async function refresh(options: { readOnly?: boolean } = {}): Promise<void> {
     refreshDevOptions();
-    ensurePromptTemplateEnabled();
-    syncContentReplaceAvailability();
+    if (!options.readOnly) {
+      ensurePromptTemplateEnabled();
+      syncContentReplaceAvailability();
+    }
     const next = safeReadSnapshot();
     chatFileIdentifier.value = next.chatFileIdentifier;
     coreApisReady.value = next.coreApisReady;

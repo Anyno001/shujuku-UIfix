@@ -373,14 +373,16 @@ describe("DashboardPage", () => {
     ).toBe(true);
     expect(vectorHealth!.querySelector(".acu-badge--neutral")).not.toBeNull();
 
-    // 基础设置默认呈现
-    expect(text).toContain("基础设置");
+    // 基础功能默认呈现，进阶功能和更多高级功能由分组切换展示
+    expect(text).toContain("基础功能");
     expect(text).not.toContain("功能开关");
-    expect(text).toContain("高级设置");
+    expect(text).toContain("进阶功能");
+    expect(text).toContain("更多高级功能");
     expect(text).toContain("自动更新");
     expect(text).toContain("静默提示框");
-    expect(text).toContain("开启流式输出");
-    expect(text).toContain("0TK 占用模式");
+    expect(text).toContain("剧情推进");
+    expect(text).toContain("飞行模式");
+    expect(text).toContain("保存方式");
 
     const visibleToggleKeys = Array.from(
       document.querySelectorAll<HTMLButtonElement>(
@@ -388,27 +390,23 @@ describe("DashboardPage", () => {
       ),
     ).map((button) => button.dataset.acuToggleKey);
     expect(visibleToggleKeys).toEqual([
-      "flightMode",
       "autoUpdateEnabled",
+      "plotEnabled",
       "toastMuteEnabled",
-      "zeroTkOccupyModeDefault",
-      "streamingEnabled",
+      "flightMode",
     ]);
 
-    // 默认在基础设置视图下，高级字段不可见
+    // 默认在基础功能视图下，进阶和更多高级字段不可见
     expect(
-      document.querySelector('button[data-acu-toggle-key="plotEnabled"]'),
+      document.querySelector('button[data-acu-toggle-key="streamingEnabled"]'),
     ).toBeNull();
     expect(text).not.toContain("启用条件模板功能");
     expect(text).not.toContain("交火模式默认关闭");
     expect(text).not.toContain("启用开发者选项");
     expect(text).not.toContain("启用SQL存储");
-    // 旧存储模式 radio 不再由配置状态面板承载
-    expect(text).not.toContain("决定表格数据如何持久化");
-    expect(
-      document.querySelector('div[role="radiogroup"][aria-label="存储模式"]'),
-    ).toBeNull();
-    expect(text).not.toContain("SQLite");
+    // 保存方式始终是独立选择控件，不伪装为布尔开关
+    expect(document.querySelector('.acu-dashboard-storage-mode')).not.toBeNull();
+    expect(text).toContain("SQLite");
 
     // 旧设计已删除：subtitle / 刷新按钮 / API 三件套面板 / 规范填表 toggle
     expect(text).not.toContain("数据库运行态");
@@ -731,15 +729,23 @@ describe("DashboardPage", () => {
     mount.__resetAcuV2MountForTests();
   });
 
-  it("切换到高级设置后显示高级开关、存储模式选择与开发者总开关", async () => {
+  it("三组开关分开展示，基础功能保留独立的保存方式选择", async () => {
     const { mount } = await mountDashboardPage();
 
-    // 找到 segmented control 的"高级设置"按钮
+    const storageGroup = document.querySelector('div[role="radiogroup"][aria-label="保存方式"]');
+    expect(storageGroup).not.toBeNull();
+    expect(storageGroup!.closest(".acu-dashboard-storage-mode")).not.toBeNull();
+    expect(storageGroup!.classList.contains("acu-dashboard-storage-mode__switch")).toBe(true);
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".acu-dashboard-storage-mode__card"));
+    expect(cards).toHaveLength(2);
+    expect(cards[0].classList.contains("acu-dashboard-storage-mode__card--active")).toBe(true);
+    expect(cards[1].classList.contains("acu-dashboard-storage-mode__card--active")).toBe(false);
+
     const segmentedButtons = Array.from(
       document.querySelectorAll('button[role="radio"]'),
     ) as HTMLButtonElement[];
     const advancedBtn = segmentedButtons.find(
-      (b) => (b.textContent || "").trim() === "高级设置",
+      (b) => (b.textContent || "").trim() === "进阶功能",
     );
     expect(advancedBtn).toBeDefined();
     advancedBtn!.click();
@@ -747,65 +753,30 @@ describe("DashboardPage", () => {
 
     const text =
       document.querySelector(".acu-v2-dashboard-page")?.textContent || "";
-    expect(text).toContain("剧情推进");
-    expect(text).toContain("智能续写");
-    expect(text).toContain("世界推演");
-    expect(text).toContain("外部导入");
     expect(text).toContain("交火模式");
-    expect(text).toContain("存储模式");
-    expect(text).toContain("原生 JSON");
-    expect(text).toContain("SQLite");
-    expect(text).toContain("兼容性最佳");
-    expect(text).toContain("启用开发者选项");
-    expect(text).not.toContain("启用SQL存储");
-    expect(text).not.toContain("启用条件模板功能");
-    expect(text).not.toContain("0TK 占用模式");
-    expect(text).toContain("选择表格数据的保存方式");
+    expect(text).toContain("0TK模式");
+    expect(text).toContain("流式输出");
+    const keys = () => Array.from(document.querySelectorAll<HTMLButtonElement>("button[data-acu-toggle-key]"))
+      .map(button => button.dataset.acuToggleKey);
+    expect(keys()).toEqual(["summaryVectorIndexModeEnabled", "zeroTkOccupyModeDefault", "streamingEnabled"]);
+    expect(document.querySelector(".acu-dashboard-storage-mode")).toBeNull();
 
-    const visibleToggleKeys = Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        "button[data-acu-toggle-key]",
-      ),
-    ).map((button) => button.dataset.acuToggleKey);
-    expect(visibleToggleKeys).toEqual([
-      "plotEnabled",
-      "continuationPageEnabled",
-      "worldSimulationPageEnabled",
-      "externalImportPageEnabled",
-      "contentReplaceEnabled",
-      "summaryVectorIndexModeEnabled",
-      "developerOptionsEnabled",
+    segmentedButtons.find(b => b.textContent?.trim() === "更多高级功能")!.click();
+    await new Promise(r => setTimeout(r, 0));
+    expect(keys()).toEqual([
+      "continuationPageEnabled", "contentReplaceEnabled", "externalImportPageEnabled",
+      "worldSimulationPageEnabled", "developerOptionsEnabled",
     ]);
-
-    const storageGroup = document.querySelector(
-      'div[role="radiogroup"][aria-label="存储模式"]',
-    );
-    expect(storageGroup).not.toBeNull();
-    expect(storageGroup!.closest(".acu-dashboard-storage-mode")).not.toBeNull();
-    expect(
-      storageGroup!.classList.contains("acu-dashboard-storage-mode__switch"),
-    ).toBe(true);
-    const cards = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        ".acu-dashboard-storage-mode__card",
-      ),
-    );
-    expect(cards).toHaveLength(2);
-    expect(
-      cards[0].classList.contains("acu-dashboard-storage-mode__card--active"),
-    ).toBe(true);
-    expect(
-      cards[1].classList.contains("acu-dashboard-storage-mode__card--active"),
-    ).toBe(false);
-    expect(text.indexOf("启用开发者选项")).toBeLessThan(
-      text.indexOf("存储模式原生SQL"),
-    );
+    expect(document.querySelector(".acu-v2-dashboard-page")?.textContent).toContain("打开高级工具");
 
     mount.__resetAcuV2MountForTests();
   });
 
   it("修改流式输出开关会保存 settings", async () => {
     const { mount, settings, saveSettings } = await mountDashboardPage();
+    Array.from(document.querySelectorAll<HTMLButtonElement>('button[role="radio"]'))
+      .find(button => button.textContent?.trim() === "进阶功能")!.click();
+    await new Promise(r => setTimeout(r, 0));
 
     const toggle = document.querySelector(
       'button[data-acu-toggle-key="streamingEnabled"]',
@@ -822,24 +793,15 @@ describe("DashboardPage", () => {
     mount.__resetAcuV2MountForTests();
   });
 
-  it("高级设置里的存储模式选择会切换到 SQLite", async () => {
+  it("基础功能里的保存方式选择会切换到 SQLite", async () => {
     const { mount, settings, saveSettings } = await mountDashboardPage();
-
-    const segmentedButtons = Array.from(
-      document.querySelectorAll('button[role="radio"]'),
-    ) as HTMLButtonElement[];
-    const advancedBtn = segmentedButtons.find(
-      (b) => (b.textContent || "").trim() === "高级设置",
-    );
-    advancedBtn!.click();
-    await new Promise((r) => setTimeout(r, 0));
 
     const page = document.querySelector(
       ".acu-v2-dashboard-page",
     ) as HTMLElement;
     const storageButtons = Array.from(
       page.querySelectorAll<HTMLButtonElement>(
-        'div[role="radiogroup"][aria-label="存储模式"] button[role="radio"]',
+        'div[role="radiogroup"][aria-label="保存方式"] button[role="radio"]',
       ),
     );
     expect(
@@ -866,7 +828,7 @@ describe("DashboardPage", () => {
     ).toEqual([false, true]);
     expect(saveSettings).toHaveBeenCalled();
     expect(page.textContent || "").not.toContain("已切换到 SQLite 模式。");
-    expect(document.body.textContent || "").toContain("已切换到 SQLite 模式。");
+    expect(document.body.textContent || "").toContain("已切换保存方式：SQLite。");
 
     mount.__resetAcuV2MountForTests();
   });
@@ -874,28 +836,24 @@ describe("DashboardPage", () => {
   it("关闭 v2 后清空 toast，重开不显示旧通知", async () => {
     const { mount } = await mountDashboardPage();
 
-    const segmentedButtons = Array.from(
-      document.querySelectorAll('button[role="radio"]'),
-    ) as HTMLButtonElement[];
-    segmentedButtons.find((b) => (b.textContent || "").trim() === "高级设置")!.click();
-    await new Promise((r) => setTimeout(r, 0));
+    // 基础功能下即可切换保存方式。
 
     const storageButtons = Array.from(
       document.querySelectorAll<HTMLButtonElement>(
-        'div[role="radiogroup"][aria-label="存储模式"] button[role="radio"]',
+        'div[role="radiogroup"][aria-label="保存方式"] button[role="radio"]',
       ),
     );
     storageButtons[1].click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(document.body.textContent || "").toContain("已切换到 SQLite 模式。");
+    expect(document.body.textContent || "").toContain("已切换保存方式：SQLite。");
 
     document.querySelector<HTMLButtonElement>(".acu-v2-app__close")!.click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(document.body.textContent || "").not.toContain("已切换到 SQLite 模式。");
+    expect(document.body.textContent || "").not.toContain("已切换保存方式：SQLite。");
 
     await mount.openAcuV2App();
     await new Promise((r) => setTimeout(r, 0));
-    expect(document.body.textContent || "").not.toContain("已切换到 SQLite 模式。");
+    expect(document.body.textContent || "").not.toContain("已切换保存方式：SQLite。");
 
     mount.__resetAcuV2MountForTests();
   });
@@ -905,15 +863,11 @@ describe("DashboardPage", () => {
       failStorageSwitch: true,
     });
 
-    const segmentedButtons = Array.from(
-      document.querySelectorAll('button[role="radio"]'),
-    ) as HTMLButtonElement[];
-    segmentedButtons.find((b) => (b.textContent || "").trim() === "高级设置")!.click();
-    await new Promise((r) => setTimeout(r, 0));
+    // 基础功能下即可切换保存方式。
 
     const storageButtons = Array.from(
       document.querySelectorAll<HTMLButtonElement>(
-        'div[role="radiogroup"][aria-label="存储模式"] button[role="radio"]',
+        'div[role="radiogroup"][aria-label="保存方式"] button[role="radio"]',
       ),
     );
     storageButtons[1].click();
@@ -926,26 +880,31 @@ describe("DashboardPage", () => {
     mount.__resetAcuV2MountForTests();
   });
 
-  it("高级设置承载功能页开关，世界推演默认关闭并随切换控制一级页可见性", async () => {
+  it("三组开关保持功能页 gate 的原有行为", async () => {
     const { mount, settings, saveSettings } = await mountDashboardPage();
 
     const segmentedButtons = Array.from(
       document.querySelectorAll('button[role="radio"]'),
     ) as HTMLButtonElement[];
-    const advancedBtn = segmentedButtons.find(
-      (b) => (b.textContent || "").trim() === "高级设置",
-    );
-    expect(advancedBtn).toBeDefined();
-    advancedBtn!.click();
+    const selectGroup = (label: string) => {
+      const button = segmentedButtons.find(b => b.textContent?.trim() === label);
+      expect(button).toBeDefined();
+      button!.click();
+    };
+    const plotToggle = document.querySelector('button[data-acu-toggle-key="plotEnabled"]') as HTMLButtonElement;
+    expect(plotToggle).not.toBeNull();
+    selectGroup("进阶功能");
+    await new Promise((r) => setTimeout(r, 0));
+    const vectorToggle = document.querySelector('button[data-acu-toggle-key="summaryVectorIndexModeEnabled"]') as HTMLButtonElement;
+    expect(vectorToggle).not.toBeNull();
+    selectGroup("更多高级功能");
     await new Promise((r) => setTimeout(r, 0));
 
     let text =
       document.querySelector(".acu-v2-dashboard-page")?.textContent || "";
-    expect(text).toContain("剧情推进");
     expect(text).toContain("智能续写");
     expect(text).toContain("世界推演");
     expect(text).toContain("外部导入");
-    expect(text).toContain("交火模式");
     expect(text).toContain("正文替换");
 
     expect(
@@ -964,9 +923,6 @@ describe("DashboardPage", () => {
       document.querySelector(".acu-v2-sidebar")?.textContent || "",
     ).not.toContain("交火模式");
 
-    const plotToggle = document.querySelector(
-      'button[data-acu-toggle-key="plotEnabled"]',
-    ) as HTMLButtonElement;
     const continuationToggle = document.querySelector(
       'button[data-acu-toggle-key="continuationPageEnabled"]',
     ) as HTMLButtonElement;
@@ -975,9 +931,6 @@ describe("DashboardPage", () => {
     ) as HTMLButtonElement;
     const importToggle = document.querySelector(
       'button[data-acu-toggle-key="externalImportPageEnabled"]',
-    ) as HTMLButtonElement;
-    const vectorToggle = document.querySelector(
-      'button[data-acu-toggle-key="summaryVectorIndexModeEnabled"]',
     ) as HTMLButtonElement;
     expect(plotToggle).not.toBeNull();
     expect(continuationToggle).not.toBeNull();
@@ -1011,8 +964,17 @@ describe("DashboardPage", () => {
     expect(text).not.toContain("功能");
     expect(text).not.toContain("世界推演");
 
-    plotToggle.click();
-    vectorToggle.click();
+    // 切回所属组后操作开关；不能依赖已卸载分组的旧 DOM 节点。
+    selectGroup("基础功能");
+    await new Promise((r) => setTimeout(r, 0));
+    const visiblePlotToggle = document.querySelector('button[data-acu-toggle-key="plotEnabled"]') as HTMLButtonElement;
+    expect(visiblePlotToggle).not.toBeNull();
+    visiblePlotToggle.click();
+    selectGroup("进阶功能");
+    await new Promise((r) => setTimeout(r, 0));
+    const visibleVectorToggle = document.querySelector('button[data-acu-toggle-key="summaryVectorIndexModeEnabled"]') as HTMLButtonElement;
+    expect(visibleVectorToggle).not.toBeNull();
+    visibleVectorToggle.click();
     await Promise.resolve();
 
     expect(settings.plotSettings.enabled).toBe(true);
@@ -1025,7 +987,7 @@ describe("DashboardPage", () => {
     mount.__resetAcuV2MountForTests();
   });
 
-  it("正文替换开关常驻显示在外部导入下方，开启后才显示页面并启用功能", async () => {
+  it("正文替换开关在更多高级功能中常驻，开启后才显示页面并启用功能", async () => {
     const settings = createSettings();
     settings.contentOptimizationSettings.enabled = false;
     const { mount } = await mountDashboardPage(settings);
@@ -1034,7 +996,7 @@ describe("DashboardPage", () => {
       document.querySelectorAll('button[role="radio"]'),
     ) as HTMLButtonElement[];
     const advancedBtn = segmentedButtons.find(
-      (b) => (b.textContent || "").trim() === "高级设置",
+      (b) => (b.textContent || "").trim() === "更多高级功能",
     );
     advancedBtn!.click();
     await new Promise((r) => setTimeout(r, 0));
@@ -1054,12 +1016,10 @@ describe("DashboardPage", () => {
       ),
     ).map((button) => button.dataset.acuToggleKey);
     expect(visibleToggleKeys).toEqual([
-      "plotEnabled",
       "continuationPageEnabled",
-      "worldSimulationPageEnabled",
-      "externalImportPageEnabled",
       "contentReplaceEnabled",
-      "summaryVectorIndexModeEnabled",
+      "externalImportPageEnabled",
+      "worldSimulationPageEnabled",
       "developerOptionsEnabled",
     ]);
 
@@ -1107,7 +1067,7 @@ describe("DashboardPage", () => {
       document.querySelectorAll('button[role="radio"]'),
     ) as HTMLButtonElement[];
     const advancedBtn = segmentedButtons.find(
-      (b) => (b.textContent || "").trim() === "高级设置",
+      (b) => (b.textContent || "").trim() === "更多高级功能",
     );
     advancedBtn!.click();
     await new Promise((r) => setTimeout(r, 0));

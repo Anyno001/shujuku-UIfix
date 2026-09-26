@@ -2,6 +2,7 @@
   <section class="acu-v2-dashboard-page">
     <AcuPanelGrid class="acu-v2-dashboard-page__grid">
       <AcuPanel
+        v-if="!togglesOnly"
         :title="dashboardCopy.panels.healthTitle"
         :description="dashboardCopy.panels.healthDescription"
       >
@@ -91,7 +92,7 @@
             />
             <AcuButton
               variant="default"
-              @click="routerStore.setActivePage('advanced-tools')"
+              @click="openAdvancedTools"
             >
               打开高级工具
             </AcuButton>
@@ -127,11 +128,14 @@ import { dashboardCopy } from "../copy/dashboard-copy";
 import { useDialogStore } from "../stores/dialog-store";
 import { usePlotPresetStore } from "../stores/plot-preset-store";
 import { useRouterStore } from "../stores/router-store";
+import { useUiModeStore } from "../stores/ui-mode-store";
 import { useToastStore } from "../stores/toast-store";
 
+const props = defineProps<{ togglesOnly?: boolean }>();
 const dashboard = useDashboardPage();
 const plotStore = usePlotPresetStore();
 const routerStore = useRouterStore();
+const uiMode = useUiModeStore();
 const dialogStore = useDialogStore();
 const toastStore = useToastStore();
 
@@ -144,7 +148,7 @@ const groupOptions = [
 
 async function refreshAll(): Promise<void> {
   plotStore.refreshFromSettings();
-  await dashboard.refresh();
+  await dashboard.refresh({ readOnly: props.togglesOnly });
   routerStore.setSqliteMode(dashboard.storageMode.value === "sqlite");
   syncFeaturePageGates();
 }
@@ -157,19 +161,19 @@ function syncFeaturePageGates(): void {
   routerStore.syncFeatureGate(FEATURE_GATE_PLOT, plotStore.enabled === true);
   routerStore.syncFeatureGate(
     FEATURE_GATE_CONTINUATION,
-    dashboard.advancedToggles.value.some(
+    dashboard.moreAdvancedToggles.value.some(
       (item) => item.key === "continuationPageEnabled" && item.value,
     ),
   );
   routerStore.syncFeatureGate(
     FEATURE_GATE_WORLD_SIMULATION,
-    dashboard.advancedToggles.value.some(
+    dashboard.moreAdvancedToggles.value.some(
       (item) => item.key === "worldSimulationPageEnabled" && item.value,
     ),
   );
   routerStore.syncFeatureGate(
     FEATURE_GATE_IMPORT,
-    dashboard.advancedToggles.value.some(
+    dashboard.moreAdvancedToggles.value.some(
       (item) => item.key === "externalImportPageEnabled" && item.value,
     ),
   );
@@ -179,6 +183,12 @@ function syncFeaturePageGates(): void {
       (item) => item.key === "summaryVectorIndexModeEnabled" && item.value,
     ),
   );
+}
+
+function openAdvancedTools(): void {
+  // 基础模式仅显示基础配置页；先切换 UI 模式，再沿原路由打开高级工具。
+  if (uiMode.isBasicMode) uiMode.setMode('advanced');
+  routerStore.setActivePage('advanced-tools');
 }
 
 function goToHealthAction(pageId: string): void {
